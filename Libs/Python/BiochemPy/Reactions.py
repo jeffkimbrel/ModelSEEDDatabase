@@ -8,7 +8,9 @@ class Reactions:
                  rxns_file='reactions.tsv'):
         self.BiochemRoot = biochem_root
         self.RxnsFile = biochem_root + rxns_file
-        self.AliasFile = biochem_root + "Aliases/Reactions_Aliases.tsv"
+        self.AliasFile = biochem_root + "Aliases/Unique_ModelSEED_Reaction_Aliases.txt"
+        self.NameFile = biochem_root + "Aliases/Unique_ModelSEED_Reaction_Names.txt"
+        self.ECFile = biochem_root + "Aliases/Unique_ModelSEED_Reaction_ECs.txt"
 
         reader = DictReader(open(self.RxnsFile), dialect='excel-tab')
         self.Headers = reader.fieldnames
@@ -200,26 +202,30 @@ class Reactions:
             if (rxn_net_mass[atom] == 0):
                 continue
 
-            # Correct for redundant ".0" in floats
-            if (str(rxn_net_mass[atom])[-2:] == ".0"):
-                rxn_net_mass[atom] = int(round(rxn_net_mass[atom]))
+            rxn_net_mass[atom] = "{0:.2f}".format(rxn_net_mass[atom])
 
-            imbalanced_atoms_array.append(atom + ":" + str(rxn_net_mass[atom]))
+            # Correct for redundant ".00" in floats
+            if (rxn_net_mass[atom][-3:] == ".00"):
+                rxn_net_mass[atom] = str(int(float(rxn_net_mass[atom])))
+    
+            imbalanced_atoms_array.append(atom + ":" + rxn_net_mass[atom])
 
-        # Correct for redundant ".0" in floats
-        if (str(rxn_net_charge)[-2:] == ".0"):
-            rxn_net_charge = int(rxn_net_charge)
+        rxn_net_charge = "{0:.2f}".format(rxn_net_charge)
+
+        # Correct for redundant ".00" in floats
+        if (rxn_net_charge[-3:] == ".00"):
+            rxn_net_charge = str(int(float(rxn_net_charge)))
 
         status = ""
 
         if (len(imbalanced_atoms_array) > 0):
             status = "MI:" + "/".join(imbalanced_atoms_array)
 
-        if (rxn_net_charge != 0):
+        if (rxn_net_charge != "0"):
             if (len(status) == 0):
-                status = "CI:" + str(rxn_net_charge)
+                status = "CI:" + rxn_net_charge
             else:
-                status += "|CI:" + str(rxn_net_charge)
+                status += "|CI:" + rxn_net_charge
 
         if (status == ""):
             status = "OK"
@@ -351,23 +357,62 @@ class Reactions:
 
     def loadMSAliases(self,sources_array=[]):
         if(len(sources_array)==0):
-            return {}
+            sources_array.append("All")
 
         aliases_dict = dict()
         reader = DictReader(open(self.AliasFile), dialect = 'excel-tab')
         for line in reader:
-            if("rxn" not in line['MS ID']):
+            if("rxn" not in line['ModelSEED ID']):
                 continue
 
             if("All" not in sources_array and line['Source'] not in sources_array):
                 continue
 
-            if(line['MS ID'] not in aliases_dict):
-                   aliases_dict[line['MS ID']]=dict()
+            if(line['ModelSEED ID'] not in aliases_dict):
+                   aliases_dict[line['ModelSEED ID']]=dict()
 
-            if(line['Source'] not in aliases_dict[line['MS ID']]):
-                aliases_dict[line['MS ID']][line['Source']]=list()
+            for source in line['Source'].split('|'):
+                if(source not in aliases_dict[line['ModelSEED ID']]):
+                    aliases_dict[line['ModelSEED ID']][source]=list()
 
-            aliases_dict[line['MS ID']][line['Source']].append(line['External ID'])
+                aliases_dict[line['ModelSEED ID']][source].append(line['External ID'])
 
         return aliases_dict
+
+    def loadNames(self):
+        names_dict = dict()
+        reader = DictReader(open(self.NameFile), dialect = 'excel-tab')
+        for line in reader:
+            if("rxn" not in line['ModelSEED ID']):
+                continue
+
+            if(line['ModelSEED ID'] not in names_dict):
+                   names_dict[line['ModelSEED ID']]=dict()
+
+            #redundant as only one source but keep this just in case
+            for source in line['Source'].split('|'):
+                if(source not in names_dict[line['ModelSEED ID']]):
+                    names_dict[line['ModelSEED ID']][source]=list()
+
+                names_dict[line['ModelSEED ID']][source].append(line['External ID'])
+
+        return names_dict
+
+    def loadECs(self):
+        ecs_dict = dict()
+        reader = DictReader(open(self.ECFile), dialect = 'excel-tab')
+        for line in reader:
+            if("rxn" not in line['ModelSEED ID']):
+                continue
+
+            if(line['ModelSEED ID'] not in ecs_dict):
+                   ecs_dict[line['ModelSEED ID']]=dict()
+
+            #redundant as only one source but keep this just in case
+            for source in line['Source'].split('|'):
+                if(source not in ecs_dict[line['ModelSEED ID']]):
+                    ecs_dict[line['ModelSEED ID']][source]=list()
+
+                ecs_dict[line['ModelSEED ID']][source].append(line['External ID'])
+
+        return ecs_dict

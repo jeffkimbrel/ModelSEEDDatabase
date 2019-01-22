@@ -8,7 +8,8 @@ class Compounds:
                  cpds_file='compounds.tsv'):
         self.BiochemRoot = biochem_root
         self.CpdsFile = biochem_root + cpds_file
-        self.AliasFile = biochem_root + "Aliases/Compounds_Aliases.tsv"
+        self.AliasFile = biochem_root + "Aliases/Unique_ModelSEED_Compound_Aliases.txt"
+        self.NameFile = biochem_root + "Aliases/Unique_ModelSEED_Compound_Names.txt"
         self.StructRoot = biochem_root + "Structures/"
 
         reader = DictReader(open(self.CpdsFile), dialect='excel-tab')
@@ -26,24 +27,26 @@ class Compounds:
 
     def loadMSAliases(self,sources_array=[]):
         if(len(sources_array)==0):
-            return {}
+            sources_array.append("All")
 
         aliases_dict = dict()
         reader = DictReader(open(self.AliasFile), dialect = 'excel-tab')
         for line in reader:
-            if("cpd" not in line['MS ID']):
+            if("cpd" not in line['ModelSEED ID']):
                 continue
 
-            if("All" not in sources_array and line['Source'] not in sources_array):
-                continue
+            for source in line['Source'].split('|'):
 
-            if(line['MS ID'] not in aliases_dict):
-                   aliases_dict[line['MS ID']]=dict()
+                if("All" not in sources_array and source not in sources_array):
+                    continue
 
-            if(line['Source'] not in aliases_dict[line['MS ID']]):
-                aliases_dict[line['MS ID']][line['Source']]=list()
+                if(line['ModelSEED ID'] not in aliases_dict):
+                   aliases_dict[line['ModelSEED ID']]=dict()
 
-            aliases_dict[line['MS ID']][line['Source']].append(line['External ID'])
+                if(source not in aliases_dict[line['ModelSEED ID']]):
+                    aliases_dict[line['ModelSEED ID']][source]=list()
+
+                aliases_dict[line['ModelSEED ID']][source].append(line['External ID'])
 
         return aliases_dict
 
@@ -51,7 +54,7 @@ class Compounds:
         aliases_dict = dict()
         reader = DictReader(open(self.AliasFile), dialect = 'excel-tab')
         for line in reader:
-            if("cpd" not in line['MS ID']):
+            if("cpd" not in line['ModelSEED ID']):
                 continue
 
             if(line['Source'] not in aliases_dict):
@@ -60,9 +63,28 @@ class Compounds:
             if(line['External ID'] not in aliases_dict[line['Source']]):
                 aliases_dict[line['Source']][line['External ID']]=list()
 
-            aliases_dict[line['Source']][line['External ID']].append(line['MS ID'])
+            aliases_dict[line['Source']][line['External ID']].append(line['ModelSEED ID'])
 
         return aliases_dict
+
+    def loadNames(self):
+        names_dict = dict()
+        reader = DictReader(open(self.NameFile), dialect = 'excel-tab')
+        for line in reader:
+            if("cpd" not in line['ModelSEED ID']):
+                continue
+
+            if(line['ModelSEED ID'] not in names_dict):
+                   names_dict[line['ModelSEED ID']]=dict()
+
+            #redundant as only one source but keep this just in case
+            for source in line['Source'].split('|'):
+                if(source not in names_dict[line['ModelSEED ID']]):
+                    names_dict[line['ModelSEED ID']][source]=list()
+
+                names_dict[line['ModelSEED ID']][source].append(line['External ID'])
+
+        return names_dict
 
     def loadStructures(self,sources_array=[],db_array=[]):
         if(len(sources_array)==0):
@@ -172,7 +194,7 @@ class Compounds:
     @staticmethod
     def buildFormula(Atoms_Dict):
         formula = ""
-        for atom in Compounds.hill_sorted(Atoms_Dict.keys()):
+        for atom in Compounds.hill_sorted(list(Atoms_Dict.keys())):
             if (Atoms_Dict[atom] == 1):
                 Atoms_Dict[atom] = ""
             formula += atom + str(Atoms_Dict[atom])
